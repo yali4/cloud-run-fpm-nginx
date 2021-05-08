@@ -132,7 +132,7 @@ char* replaceWord(const char* s, const char* oldW,
 
 void configurePhpFpm()
 {
-    printf("\n Configuring PHP-FPM... \n");
+    printf("Configuring PHP-FPM... \n");
 
     char *fpmConfig;
 
@@ -145,7 +145,7 @@ void configurePhpFpm()
 
 void configureNginx()
 {
-    printf("\n Configuring NGINX... \n");
+    printf("Configuring NGINX... \n");
 
     char *nginxConfig;
 
@@ -167,14 +167,14 @@ void killAllChildProcesses()
 
 void sigintHandler()
 {
-	printf("\n Killed by SIGINT. \n");
+	printf("Killed by SIGINT. \n");
 	killAllChildProcesses();
 	exit(EXIT_SUCCESS);
 }
 
 void sigtermHandler()
 {
-	printf("\n Killed by SIGTERM. \n");
+	printf("Killed by SIGTERM. \n");
 	killAllChildProcesses();
 	exit(EXIT_FAILURE);
 }
@@ -193,10 +193,12 @@ bool isFinished(pid_t process_id)
 
 void connectToPhpFpm()
 {
+	printf("Connecting PHP-FPM Socket... \n");
+
 	int sock = 0;
     if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
     {
-        printf("\n Socket creation error! \n");
+        printf("Error: Socket creation error! \n");
         exit(EXIT_FAILURE);
     }
 
@@ -204,18 +206,16 @@ void connectToPhpFpm()
     serv_addr.sun_family = AF_UNIX;
     strcpy(serv_addr.sun_path, PHP_FPM_SOCK_PATH);
 
-	printf("\n Connecting PHP-FPM Socket... \n");
-
     while (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
     {
-        printf("\n Error: PHP-FPM Connection Failed!\n");
+        printf("Error: PHP-FPM Connection Failed! \n");
         usleep(CONNECT_SOCK_INTERVAL * 1000);
-        printf("\n Retrying... \n");
+        printf("Retrying... \n");
     }
 
     close(sock);
 
-    printf("\n PHP-FPM is ready for incoming requests. \n");
+    printf("PHP-FPM is ready for incoming requests. \n");
 }
 
 int main()
@@ -226,14 +226,13 @@ int main()
 	configurePhpFpm();
 	configureNginx();
 
-    fpm_pid = fork();
-    // START PHP-FPM
+	printf("Starting PHP-FPM... \n");
+
+	// START PHP-FPM
+	fpm_pid = fork();
     if (fpm_pid == 0) {
 
-		printf("\n Starting PHP-FPM... \n");
-
     	execlp(PHP_FPM, PHP_FPM, "-F", "-y", PHP_FPM_CONF, "-R", NULL);
-
     	exit(EXIT_FAILURE);
 
     } else {
@@ -241,14 +240,13 @@ int main()
     	// CONNECT PHP-FPM BEFORE START NGINX
 		connectToPhpFpm();
 
+		printf("Starting NGINX... \n");
+
+		// START NGINX
 		nginx_pid = fork();
-        // START NGINX
 	    if (nginx_pid == 0) {
 
-		    printf("\n Starting NGINX... \n");
-
 	    	execlp(NGINX, NGINX, "-c", NGINX_CONF, NULL);
-
 	    	exit(EXIT_FAILURE);
 
 	    }
@@ -257,12 +255,12 @@ int main()
 	    while (true) {
 
 			if (isFinished(fpm_pid)) {
-				printf("\n Error: PHP-FPM was trashed! \n");
+				printf("Error: PHP-FPM was trashed! \n");
 				break;
 			}
 
 			if (isFinished(nginx_pid)) {
-				printf("\n Error: NGINX was trashed! \n");
+				printf("Error: NGINX was trashed! \n");
 				break;
 			}
 
