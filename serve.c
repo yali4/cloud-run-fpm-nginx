@@ -255,12 +255,12 @@ int main()
 	    while (true) {
 
 			if (isFinished(fpm_pid)) {
-				printf("Error: PHP-FPM was trashed! \n");
+				printf("Error: PHP-FPM crashed! \n");
 				break;
 			}
 
 			if (isFinished(nginx_pid)) {
-				printf("Error: NGINX was trashed! \n");
+				printf("Error: NGINX crashed! \n");
 				break;
 			}
 
