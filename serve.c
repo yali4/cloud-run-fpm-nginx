@@ -32,11 +32,11 @@ pid_t fpm_pid, nginx_pid;
 
 void createDir(const char *directory)
 {
-	struct stat st = {0};
+    struct stat st = {0};
 
-	if (stat(directory, &st) == -1) {
-	    mkdir(directory, 0700);
-	}
+    if (stat(directory, &st) == -1) {
+        mkdir(directory, 0700);
+    }
 }
 
 void saveFile(const char *filepath, const char *data)
@@ -140,7 +140,7 @@ void configurePhpFpm()
 
     fpmConfig = replaceWord(fpmConfig, PHP_FPM_SOCK_PATTERN, PHP_FPM_SOCK_PATH);
 
-    saveFile(PHP_FPM_CONF, fpmConfig);	
+    saveFile(PHP_FPM_CONF, fpmConfig);    
 }
 
 void configureNginx()
@@ -161,48 +161,48 @@ void configureNginx()
 void killAllChildProcesses()
 {
     kill(fpm_pid, SIGTERM);
-	kill(nginx_pid, SIGTERM);
+    kill(nginx_pid, SIGTERM);
     
 }
 
 void sigintHandler()
 {
-	printf("Killed by SIGINT. \n");
-	killAllChildProcesses();
-	exit(EXIT_SUCCESS);
+    printf("Killed by SIGINT. \n");
+    killAllChildProcesses();
+    exit(EXIT_SUCCESS);
 }
 
 void sigtermHandler()
 {
-	printf("Killed by SIGTERM. \n");
-	killAllChildProcesses();
-	exit(EXIT_FAILURE);
+    printf("Killed by SIGTERM. \n");
+    killAllChildProcesses();
+    exit(EXIT_FAILURE);
 }
 
 bool isFinished(pid_t process_id)
 {
-	int status;
-	pid_t return_pid = waitpid(process_id, &status, WNOHANG);
+    int status;
+    pid_t return_pid = waitpid(process_id, &status, WNOHANG);
 
-	if (return_pid == process_id) {
-		return true;
-	}
+    if (return_pid == process_id) {
+        return true;
+    }
 
-	return false;
+    return false;
 }
 
 void connectToPhpFpm()
 {
-	printf("Connecting PHP-FPM Socket... \n");
+    printf("Connecting PHP-FPM Socket... \n");
 
-	int sock = 0;
+    int sock = 0;
     if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
     {
         printf("Error: Socket creation error! \n");
         exit(EXIT_FAILURE);
     }
 
-	struct sockaddr_un serv_addr;
+    struct sockaddr_un serv_addr;
     serv_addr.sun_family = AF_UNIX;
     strcpy(serv_addr.sun_path, PHP_FPM_SOCK_PATH);
 
@@ -220,54 +220,54 @@ void connectToPhpFpm()
 
 int main()
 {
-	signal(SIGINT, sigintHandler);
-	signal(SIGTERM, sigtermHandler);
+    signal(SIGINT, sigintHandler);
+    signal(SIGTERM, sigtermHandler);
 
-	configurePhpFpm();
-	configureNginx();
+    configurePhpFpm();
+    configureNginx();
 
-	printf("Starting PHP-FPM... \n");
+    printf("Starting PHP-FPM... \n");
 
-	// START PHP-FPM
-	fpm_pid = fork();
+    // START PHP-FPM
+    fpm_pid = fork();
     if (fpm_pid == 0) {
 
-    	execlp(PHP_FPM, PHP_FPM, "-F", "-y", PHP_FPM_CONF, "-R", NULL);
-    	exit(EXIT_FAILURE);
+        execlp(PHP_FPM, PHP_FPM, "-F", "-y", PHP_FPM_CONF, "-R", NULL);
+        exit(EXIT_FAILURE);
 
     } else {
 
-    	// CONNECT PHP-FPM BEFORE START NGINX
-		connectToPhpFpm();
+        // CONNECT PHP-FPM BEFORE START NGINX
+        connectToPhpFpm();
 
-		printf("Starting NGINX... \n");
+        printf("Starting NGINX... \n");
 
-		// START NGINX
-		nginx_pid = fork();
-	    if (nginx_pid == 0) {
+        // START NGINX
+        nginx_pid = fork();
+        if (nginx_pid == 0) {
 
-	    	execlp(NGINX, NGINX, "-c", NGINX_CONF, NULL);
-	    	exit(EXIT_FAILURE);
+            execlp(NGINX, NGINX, "-c", NGINX_CONF, NULL);
+            exit(EXIT_FAILURE);
 
-	    }
+        }
 
         // MAIN APP
-	    while (true) {
+        while (true) {
 
-			if (isFinished(fpm_pid)) {
-				printf("Error: PHP-FPM crashed! \n");
-				break;
-			}
+            if (isFinished(fpm_pid)) {
+                printf("Error: PHP-FPM crashed! \n");
+                break;
+            }
 
-			if (isFinished(nginx_pid)) {
-				printf("Error: NGINX crashed! \n");
-				break;
-			}
+            if (isFinished(nginx_pid)) {
+                printf("Error: NGINX crashed! \n");
+                break;
+            }
 
-			usleep(CHILD_PROCESS_INTERVAL * 1000);
-	    }
+            usleep(CHILD_PROCESS_INTERVAL * 1000);
+        }
 
-	    kill(getpid(), SIGTERM);
+        kill(getpid(), SIGTERM);
 
     }
 
