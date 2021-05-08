@@ -158,37 +158,42 @@ void configureNginx()
     createDir(NGINX_LOG_DIR);
 }
 
-void killAllChildProcesses()
+void stopPhpFpmProcess()
 {
-    kill(fpm_pid, SIGTERM);
-    kill(nginx_pid, SIGTERM);
-    
+    if (fpm_pid > 0) {
+        kill(fpm_pid, SIGTERM);
+    }
+}
+
+void stopNginxProcess()
+{
+    if (nginx_pid > 0) {
+        kill(nginx_pid, SIGTERM);
+    }
 }
 
 void sigintHandler()
 {
     printf("Killed by SIGINT. \n");
-    killAllChildProcesses();
+    stopPhpFpmProcess();
+    stopNginxProcess();
     exit(EXIT_SUCCESS);
 }
 
 void sigtermHandler()
 {
     printf("Killed by SIGTERM. \n");
-    killAllChildProcesses();
+    stopPhpFpmProcess();
+    stopNginxProcess();
     exit(EXIT_FAILURE);
 }
 
-bool isFinished(pid_t process_id)
+bool isStopped(pid_t process_id)
 {
     int status;
     pid_t return_pid = waitpid(process_id, &status, WNOHANG);
 
-    if (return_pid == process_id) {
-        return true;
-    }
-
-    return false;
+    return return_pid == process_id;
 }
 
 void connectToPhpFpm()
@@ -206,11 +211,19 @@ void connectToPhpFpm()
     serv_addr.sun_family = AF_UNIX;
     strcpy(serv_addr.sun_path, PHP_FPM_SOCK_PATH);
 
+    usleep(CONNECT_SOCK_INTERVAL * 1000);
+
     while (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
     {
+        if (isStopped(fpm_pid)) {
+            printf("Error: PHP-FPM is not running! \n");
+            exit(EXIT_FAILURE);
+        }
+
         printf("Error: PHP-FPM Connection Failed! \n");
-        usleep(CONNECT_SOCK_INTERVAL * 1000);
         printf("Retrying... \n");
+
+        usleep(CONNECT_SOCK_INTERVAL * 1000);
     }
 
     close(sock);
@@ -220,9 +233,11 @@ void connectToPhpFpm()
 
 int main()
 {
+    // SIGNAL HANDLERS
     signal(SIGINT, sigintHandler);
     signal(SIGTERM, sigtermHandler);
 
+    // CONFIGURATION
     configurePhpFpm();
     configureNginx();
 
@@ -249,25 +264,28 @@ int main()
             execlp(NGINX, NGINX, "-c", NGINX_CONF, NULL);
             exit(EXIT_FAILURE);
 
-        }
+        } else {
 
-        // MAIN APP
-        while (true) {
+            // MAIN APPLICATION
+            while (true) {
 
-            if (isFinished(fpm_pid)) {
-                printf("Error: PHP-FPM crashed! \n");
-                break;
+                if (isStopped(fpm_pid)) {
+                    printf("Error: PHP-FPM terminated! \n");
+                    break;
+                }
+
+                if (isStopped(nginx_pid)) {
+                    printf("Error: NGINX terminated! \n");
+                    break;
+                }
+
+                usleep(CHILD_PROCESS_INTERVAL * 1000);
             }
 
-            if (isFinished(nginx_pid)) {
-                printf("Error: NGINX crashed! \n");
-                break;
-            }
+            // TERMINATE IF ANY PROCESS WAS STOPPED
+            kill(getpid(), SIGTERM);
 
-            usleep(CHILD_PROCESS_INTERVAL * 1000);
         }
-
-        kill(getpid(), SIGTERM);
 
     }
 
