@@ -145,7 +145,7 @@ void configurePhpFpm()
 
 void configureNginx()
 {
-    printf("\n Configuring Nginx... \n");
+    printf("\n Configuring NGINX... \n");
 
     char *nginxConfig;
 
@@ -165,23 +165,16 @@ void killAllChildProcesses()
     
 }
 
-void closedByUser()
+void sigintHandler()
 {
-	printf("\n Closeed by user. \n");
+	printf("\n Killed by SIGINT. \n");
 	killAllChildProcesses();
 	exit(EXIT_SUCCESS);
 }
 
-void killedByUser()
+void sigtermHandler()
 {
-	printf("\n Killed by user. \n");
-	killAllChildProcesses();
-	exit(EXIT_FAILURE);
-}
-
-void killedByChild()
-{
-	printf("\n Killed by child process. \n");
+	printf("\n Killed by SIGTERM. \n");
 	killAllChildProcesses();
 	exit(EXIT_FAILURE);
 }
@@ -203,7 +196,7 @@ void tryConnectPhpFpm()
 	int sock = 0;
     if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
     {
-        printf("\n Socket creation error \n");
+        printf("\n Socket creation error! \n");
         exit(EXIT_FAILURE);
     }
 
@@ -220,13 +213,13 @@ void tryConnectPhpFpm()
 
     close(sock);
 
-    printf("\n PHP-FPM is ready for incoming requests.\n");
+    printf("\n PHP-FPM is ready for incoming requests. \n");
 }
 
 int main()
 {
-	signal(SIGINT, closedByUser);
-	signal(SIGTERM, killedByUser);
+	signal(SIGINT, sigintHandler);
+	signal(SIGTERM, sigtermHandler);
 
 	configurePhpFpm();
 	configureNginx();
@@ -249,7 +242,7 @@ int main()
 
 	    	tryConnectPhpFpm();
 
-		    printf("\n Starting Nginx... \n");
+		    printf("\n Starting NGINX... \n");
 
 	    	execlp(NGINX, NGINX, "-c", NGINX_CONF, NULL);
 
@@ -261,19 +254,19 @@ int main()
 	    while (true) {
 
 			if (isFinished(fpm_pid)) {
-				printf("\n PHP-FPM trashed. \n");
+				printf("\n Error: PHP-FPM was trashed! \n");
 				break;
 			}
 
 			if (isFinished(nginx_pid)) {
-				printf("\n Nginx trashed. \n");
+				printf("\n Error: NGINX was trashed! \n");
 				break;
 			}
 
 			usleep(CHILD_PROCESS_INTERVAL * 1000);
 	    }
 
-	    killedByChild();
+	    kill(getpid(), SIGTERM);
 
     }
 
