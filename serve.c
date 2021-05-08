@@ -21,11 +21,11 @@
 #define NGINX_CONF "/tmp/nginx.conf"
 #define NGINX_LOG_DIR "/var/log/nginx"
 
-// SOCKET CONNECT INTERVAL
-#define SOCK_TRY_INTERVAL 0.25
+// SOCKET CONNECT INTERVAL (MS)
+#define CONNECT_SOCK_INTERVAL 500
 
-// CHILD PROCESS FINISHED INTERVAL
-#define CHILD_PROCESS_INTERVAL 0.50
+// CHILD PROCESS FINISHED INTERVAL (MS)
+#define CHILD_PROCESS_INTERVAL 250
 
 // CHILD PROCESS IDS
 pid_t fpm_pid, nginx_pid;
@@ -214,7 +214,7 @@ void tryConnectPhpFpm()
     while (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
     {
         printf("\n PHP-FPM Connection Failed!\n");
-        sleep(SOCK_TRY_INTERVAL);
+        usleep(CONNECT_SOCK_INTERVAL * 1000);
         printf("\n Retrying... \n");
     }
 
@@ -270,7 +270,7 @@ int main()
 				break;
 			}
 
-			sleep(CHILD_PROCESS_INTERVAL);
+			usleep(CHILD_PROCESS_INTERVAL * 1000);
 	    }
 
 	    killedByChild();
