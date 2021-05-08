@@ -191,7 +191,7 @@ bool isFinished(pid_t process_id)
 	return false;
 }
 
-void tryConnectPhpFpm()
+void connectToPhpFpm()
 {
 	int sock = 0;
     if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
@@ -204,9 +204,11 @@ void tryConnectPhpFpm()
     serv_addr.sun_family = AF_UNIX;
     strcpy(serv_addr.sun_path, PHP_FPM_SOCK_PATH);
 
+	printf("\n Connecting PHP-FPM Socket... \n");
+
     while (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
     {
-        printf("\n PHP-FPM Connection Failed!\n");
+        printf("\n Error: PHP-FPM Connection Failed!\n");
         usleep(CONNECT_SOCK_INTERVAL * 1000);
         printf("\n Retrying... \n");
     }
@@ -225,7 +227,7 @@ int main()
 	configureNginx();
 
     fpm_pid = fork();
-    // PHP-FPM
+    // START PHP-FPM
     if (fpm_pid == 0) {
 
 		printf("\n Starting PHP-FPM... \n");
@@ -236,11 +238,12 @@ int main()
 
     } else {
 
-		nginx_pid = fork();
-        // NGINX
-	    if (nginx_pid == 0) {
+    	// CONNECT PHP-FPM BEFORE START NGINX
+		connectToPhpFpm();
 
-	    	tryConnectPhpFpm();
+		nginx_pid = fork();
+        // START NGINX
+	    if (nginx_pid == 0) {
 
 		    printf("\n Starting NGINX... \n");
 
@@ -250,7 +253,7 @@ int main()
 
 	    }
 
-        // MAIN
+        // MAIN APP
 	    while (true) {
 
 			if (isFinished(fpm_pid)) {
