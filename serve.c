@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <signal.h>
+#include <sys/stat.h>
 
 // PHP-FPM
 #define PHP_FPM "/usr/sbin/php-fpm"
@@ -18,6 +19,7 @@
 // NGINX
 #define NGINX "/usr/sbin/nginx"
 #define NGINX_CONF "/tmp/nginx.conf"
+#define NGINX_LOG_DIR "/var/log/nginx"
 
 // SOCKET CONNECT INTERVAL
 #define SOCK_TRY_INTERVAL 0.25
@@ -27,6 +29,15 @@
 
 // CHILD PROCESS IDS
 pid_t fpm_pid, nginx_pid;
+
+void createDir(const char *directory)
+{
+	struct stat st = {0};
+
+	if (stat(directory, &st) == -1) {
+	    mkdir(directory, 0700);
+	}
+}
 
 void saveFile(const char *filepath, const char *data)
 {
@@ -142,7 +153,9 @@ void configureNginx()
 
     nginxConfig = replaceWord(nginxConfig, PHP_FPM_SOCK_PATTERN, PHP_FPM_SOCK_PATH);
 
-    saveFile(NGINX_CONF, nginxConfig);	
+    saveFile(NGINX_CONF, nginxConfig);
+
+    createDir(NGINX_LOG_DIR);
 }
 
 void killAllChildProcesses()
