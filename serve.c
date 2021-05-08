@@ -187,16 +187,14 @@ bool isFinished(pid_t process_id)
 
 void tryConnectPhpFpm()
 {
-	int sock = 0, valread;
-    struct sockaddr_un serv_addr;
-    char *hello = "Hello from client";
-    char buffer[1024] = {0};
+	int sock = 0;
     if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
     {
         printf("\n Socket creation error \n");
         exit(EXIT_FAILURE);
     }
 
+	struct sockaddr_un serv_addr;
     serv_addr.sun_family = AF_UNIX;
     strcpy(serv_addr.sun_path, PHP_FPM_SOCK_PATH);
 
